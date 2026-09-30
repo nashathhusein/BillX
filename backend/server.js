@@ -149,16 +149,23 @@ if (
   });
 }
 
+
 // ============================================================
 // PROFILE UPLOAD
 // ============================================================
 
-const profileUploadDir = path.join(
-  __dirname,
-  "uploads",
-  "profile"
-);
+// Vercel does not allow writing to /var/task.
+// Use temporary storage on Vercel.
+// Local development will continue to use uploads/profile.
+const profileUploadDir = process.env.VERCEL
+  ? "/tmp/billx-profile"
+  : path.join(
+      __dirname,
+      "uploads",
+      "profile"
+    );
 
+// Create upload directory if it does not exist
 if (!fs.existsSync(profileUploadDir)) {
   fs.mkdirSync(profileUploadDir, {
     recursive: true,
@@ -169,6 +176,10 @@ console.log(
   "Profile upload folder:",
   profileUploadDir
 );
+
+// ============================================================
+// MULTER STORAGE
+// ============================================================
 
 const profileStorage =
   multer.diskStorage({
@@ -206,6 +217,10 @@ const profileStorage =
       );
     },
   });
+
+// ============================================================
+// MULTER UPLOAD
+// ============================================================
 
 const profileUpload =
   multer({
@@ -253,13 +268,14 @@ const profileUpload =
       },
   });
 
+// ============================================================
+// SERVE PROFILE IMAGES
+// ============================================================
+
 app.use(
-  "/uploads",
+  "/uploads/profile",
   express.static(
-    path.join(
-      __dirname,
-      "uploads"
-    )
+    profileUploadDir
   )
 );
 
