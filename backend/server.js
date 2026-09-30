@@ -42,24 +42,59 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // ============================================================
-// FIREBASE ADMIN
+// FIREBASE ADMIN - LOCAL + VERCEL
 // ============================================================
 
-const serviceAccountPath = path.join(
-  __dirname,
-  "serviceAccountKey.json"
-);
+let serviceAccount;
 
-if (!fs.existsSync(serviceAccountPath)) {
+// Vercel / Production
+if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+  try {
+    serviceAccount = JSON.parse(
+      process.env.FIREBASE_SERVICE_ACCOUNT
+    );
+  } catch (error) {
+    throw new Error(
+      "FIREBASE_SERVICE_ACCOUNT contains invalid JSON."
+    );
+  }
+}
+
+// Local development
+else {
+  const serviceAccountPath = path.join(
+    __dirname,
+    "serviceAccountKey.json"
+  );
+
+  if (!fs.existsSync(serviceAccountPath)) {
+    throw new Error(
+      "serviceAccountKey.json file is missing."
+    );
+  }
+
+  try {
+    serviceAccount = require(
+      serviceAccountPath
+    );
+  } catch (error) {
+    throw new Error(
+      "Could not load serviceAccountKey.json."
+    );
+  }
+}
+
+// Validate Firebase service account
+if (
+  !serviceAccount ||
+  typeof serviceAccount.project_id !== "string"
+) {
   throw new Error(
-    "serviceAccountKey.json was not found in backend folder."
+    "Invalid Firebase service account configuration."
   );
 }
 
-const serviceAccount = JSON.parse(
-  fs.readFileSync(serviceAccountPath, "utf8")
-);
-
+// Initialize Firebase Admin
 if (getApps().length === 0) {
   initializeApp({
     credential: cert(serviceAccount),
@@ -269,7 +304,8 @@ app.get(
         success: false,
         message:
           "Firebase Admin connection failed",
-        error: error.message,
+        error:
+          error.message,
       });
     }
   }
@@ -316,10 +352,6 @@ async function requireAuth(
         .trim();
 
     if (!token) {
-      console.log(
-        "AUTH ERROR: Empty token"
-      );
-
       return res.status(401).json({
         success: false,
         message:
@@ -381,10 +413,6 @@ async function requireAdmin(
     );
 
     if (!req.user) {
-      console.log(
-        "ADMIN RESULT: No authenticated user"
-      );
-
       return res.status(401).json({
         success: false,
         message:
@@ -405,7 +433,7 @@ async function requireAdmin(
     const adminEmails =
       String(
         process.env.ADMIN_EMAILS ||
-          ""
+        ""
       )
         .split(",")
         .map(
@@ -419,7 +447,7 @@ async function requireAdmin(
     const adminUids =
       String(
         process.env.ADMIN_UIDS ||
-          ""
+        ""
       )
         .split(",")
         .map(
@@ -458,51 +486,21 @@ async function requireAdmin(
         uid
       );
 
-    console.log(
-      "Email Match:",
-      emailMatch
-    );
-
-    console.log(
-      "UID Match:",
-      uidMatch
-    );
-
-    // ========================================================
-    // ADMIN EMAIL
-    // ========================================================
-
     if (emailMatch) {
       console.log(
         "ADMIN RESULT: Email matched"
       );
 
-      console.log(
-        "================================="
-      );
-
       return next();
     }
-
-    // ========================================================
-    // ADMIN UID
-    // ========================================================
 
     if (uidMatch) {
       console.log(
         "ADMIN RESULT: UID matched"
       );
 
-      console.log(
-        "================================="
-      );
-
       return next();
     }
-
-    // ========================================================
-    // FIRESTORE ROLE
-    // ========================================================
 
     try {
       const userDoc =
@@ -519,7 +517,7 @@ async function requireAdmin(
         const role =
           String(
             userData.role ||
-              ""
+            ""
           )
             .trim()
             .toLowerCase();
@@ -536,16 +534,8 @@ async function requireAdmin(
             "ADMIN RESULT: Firestore role matched"
           );
 
-          console.log(
-            "================================="
-          );
-
           return next();
         }
-      } else {
-        console.log(
-          "Firestore user document does not exist."
-        );
       }
     } catch (
       firestoreError
@@ -558,10 +548,6 @@ async function requireAdmin(
 
     console.log(
       "ADMIN RESULT: ACCESS DENIED"
-    );
-
-    console.log(
-      "================================="
     );
 
     return res.status(403).json({
@@ -655,10 +641,6 @@ app.post(
   requireAuth,
   requireAdmin,
   async (req, res) => {
-    console.log(
-      "========== CREATE LICENSE =========="
-    );
-
     try {
       const customerEmail =
         normalizeEmail(
@@ -669,16 +651,6 @@ app.post(
         Number(
           req.body.days
         );
-
-      console.log(
-        "Customer Email:",
-        customerEmail
-      );
-
-      console.log(
-        "License Days:",
-        days
-      );
 
       if (
         !Number.isFinite(days) ||
@@ -691,9 +663,7 @@ app.post(
         days = 3650;
       }
 
-      if (
-        !customerEmail
-      ) {
+      if (!customerEmail) {
         return res.status(400).json({
           success: false,
           message:
@@ -701,12 +671,7 @@ app.post(
         });
       }
 
-      // ========================================================
-      // GENERATE UNIQUE KEY
-      // ========================================================
-
-      let licenseKey =
-        "";
+      let licenseKey = "";
 
       for (
         let attempt = 0;
@@ -715,11 +680,6 @@ app.post(
       ) {
         const possibleKey =
           generateLicenseKey();
-
-        console.log(
-          "Checking generated key:",
-          possibleKey
-        );
 
         const existing =
           await db
@@ -741,24 +701,13 @@ app.post(
         }
       }
 
-      if (
-        !licenseKey
-      ) {
+      if (!licenseKey) {
         return res.status(500).json({
           success: false,
           message:
             "Could not generate a unique license key.",
         });
       }
-
-      console.log(
-        "Generated License:",
-        licenseKey
-      );
-
-      // ========================================================
-      // FIND CUSTOMER USER
-      // ========================================================
 
       let assignedUserId =
         null;
@@ -771,23 +720,10 @@ app.post(
 
         assignedUserId =
           customerUser.uid;
-
-        console.log(
-          "Customer Firebase UID:",
-          assignedUserId
-        );
       } catch (error) {
-        console.log(
-          "Customer account not found yet."
-        );
-
         assignedUserId =
           null;
       }
-
-      // ========================================================
-      // EXPIRY
-      // ========================================================
 
       const expiresAt =
         Timestamp.fromDate(
@@ -800,15 +736,6 @@ app.post(
                 1000
           )
         );
-
-      // ========================================================
-      // FIRESTORE SAVE
-      // ========================================================
-
-      console.log(
-        "Saving license document:",
-        licenseKey
-      );
 
       await db
         .collection(
@@ -853,14 +780,6 @@ app.post(
             expiresAt,
         });
 
-      console.log(
-        "License Firestore save: SUCCESS"
-      );
-
-      console.log(
-        "===================================="
-      );
-
       return res.status(201).json({
         success: true,
 
@@ -882,16 +801,6 @@ app.post(
       console.error(
         "CREATE LICENSE ERROR:",
         error
-      );
-
-      console.error(
-        "ERROR MESSAGE:",
-        error.message
-      );
-
-      console.error(
-        "ERROR STACK:",
-        error.stack
       );
 
       return res.status(500).json({
@@ -919,20 +828,6 @@ app.post(
           req.body.licenseKey
         );
 
-      console.log(
-        "========== LICENSE VERIFY =========="
-      );
-
-      console.log(
-        "License:",
-        cleanKey
-      );
-
-      console.log(
-        "User:",
-        req.user.email
-      );
-
       if (!cleanKey) {
         return res.status(400).json({
           success: false,
@@ -949,9 +844,6 @@ app.post(
           .doc(
             cleanKey
           );
-
-      let responseMessage =
-        "License activated successfully.";
 
       await db.runTransaction(
         async (
@@ -1113,14 +1005,12 @@ app.post(
         }
       );
 
-      console.log(
-        "LICENSE ACTIVATION SUCCESS"
-      );
-
       return res.json({
         success: true,
+
         message:
-          responseMessage,
+          "License activated successfully.",
+
         licenseKey:
           cleanKey,
       });
