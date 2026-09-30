@@ -1,0 +1,21 @@
+Windows local_auth_windows fix
+
+The CMakeLists.txt you showed is the runner CMake file. The local_auth_windows plugin is a separate generated target, so putting the definition only in runner CMake may not reach the plugin.
+
+Open:
+C:\BillX\windows\CMakeLists.txt
+
+Find:
+include(flutter/generated_plugins.cmake)
+
+Immediately BEFORE that line add:
+
+add_compile_definitions(_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS)
+
+Do not add duplicate copies in windows\runner\CMakeLists.txt.
+
+Then run:
+cd C:\BillX
+flutter clean
+flutter pub get
+flutter build windows --release

@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "302666662599",
+    "firebase_url": "https://billx-478f4-default-rtdb.firebaseio.com",
+    "project_id": "billx-478f4",
+    "storage_bucket": "billx-478f4.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:302666662599:android:ae38c97515eea05d5db4e2",
+        "android_client_info": {
+          "package_name": "com.example.billx"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDubbzz2KFvJSE-YIvKw8jw5LxK7F6FPF0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
